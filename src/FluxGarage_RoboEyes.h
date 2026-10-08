@@ -217,7 +217,26 @@ unsigned long flutterAnimationTimer = 0;
 int flutterAnimationDuration = 900;
 int flutterInterval = 80; // milliseconds between the twitches
 byte flutterAmplitude = 0; // how much taller the eyes get with each twitch, in pixels (set by anim_flutter)
-int drawOffsetY = 0; // breathing and jump in the current frame, only while drawing
+
+// Animation - dozing off, fighting against sleep: the eyelids sink, jerk back
+// open, sink further, jerk back again, fall shut, and the eyes pop open a bit
+// wider (see dozeShutAt() for the timing); the eyes droop down with the lids
+bool doze = 0;
+unsigned long dozeAnimationTimer = 0;
+byte dozeDroop = 6; // how far the eyes droop down when shut, in pixels
+int dozeDroopOffset = 0; // the droop in the current frame, only while drawing
+
+// Animation - perky wink: one eye shuts for a moment, the other one squints,
+// and both hop up a little
+bool winking = 0;
+bool winkLeft = 0; // which eye winks
+unsigned long winkAnimationTimer = 0;
+int winkDuration = 400; // how long the winking eye stays shut, in milliseconds
+byte winkSquint = 8; // how much shorter the other eye gets, in pixels
+byte winkHop = 4; // how far both eyes hop up, in pixels
+int winkHopOffset = 0; // the hop in the current frame, only while drawing
+
+int drawOffsetY = 0; // breathing, jump, hop and droop in the current frame, only while drawing
 
 // Animation - sweat on the forehead
 bool sweat = 0;
@@ -596,6 +615,63 @@ void anim_flutter(byte amplitude) {
   flutterAnimationTimer = millis();
 }
 
+// Play doze animation - one shot animation of fighting against sleep, e.g. when
+// tired: the eyelids sink, jerk back open twice, fall shut, then the eyes pop
+// open a bit wider
+void anim_doze() {
+  doze = 1;
+  dozeAnimationTimer = millis();
+}
+
+// The doze's course: how shut the eyes are (0 = open, 1 = shut, below 0 = a
+// bit wider than open) at a time in milliseconds, straight lines between them
+struct DozeKey {
+  unsigned int ms;
+  float shut;
+};
+static const DozeKey *dozeKeys(size_t &count) {
+  static const DozeKey KEYS[] = {
+    {0, 0},       // awake
+    {700, 0.5},   // the eyelids sink halfway
+    {850, 0.1},   // jerk back open
+    {1700, 0.85}, // sink further
+    {1850, 0.2},  // jerk back again, weaker
+    {2900, 1},    // fall shut
+    {3400, 1},    // stay shut
+    {3550, -0.15},// pop open, a bit wider
+    {3800, 0},    // back to normal
+  };
+  count = sizeof(KEYS) / sizeof(KEYS[0]);
+  return KEYS;
+}
+
+unsigned long dozeDuration() const {
+  size_t count;
+  const DozeKey *keys = dozeKeys(count);
+  return keys[count - 1].ms;
+}
+
+float dozeShutAt(unsigned long elapsed) const {
+  size_t count;
+  const DozeKey *keys = dozeKeys(count);
+  for (size_t i = 1; i < count; i++) {
+    if (elapsed < keys[i].ms) {
+      const float along = float(elapsed - keys[i - 1].ms) / (keys[i].ms - keys[i - 1].ms);
+      return keys[i - 1].shut + (keys[i].shut - keys[i - 1].shut) * along;
+    }
+  }
+  return keys[count - 1].shut;
+}
+
+// Play wink animation - one shot animation of a perky wink: one eye (left =
+// true: the left one) shuts for a moment, the other one squints, both hop up
+void anim_wink(bool left) {
+  winking = 1;
+  winkLeft = left;
+  winkAnimationTimer = millis();
+  close(left, !left); // stays shut until the wink is over
+}
+
 //*********************************************************************************************
 //  PRE-CALCULATIONS AND ACTUAL DRAWINGS
 //*********************************************************************************************
@@ -645,22 +721,64 @@ void drawEyes(){
     }
   }
 
-  // Left eye height
-  eyeLheightCurrent = (eyeLheightCurrent + eyeLheightNext + eyeLheightOffset)/2;
+  // Doze - the eyes get shorter (down to closedHeight when shut) through a
+  // negative height offset, which moves their top edge down like a sinking
+  // eyelid, and they droop down a little; how shut they are follows
+  // dozeShutAt(), then the animation ends
+  dozeDroopOffset = 0;
+  if(doze){
+    const unsigned long elapsed = millis() - dozeAnimationTimer;
+    if(elapsed >= dozeDuration()){
+      doze = 0;
+    } else {
+      const float shut = dozeShutAt(elapsed);
+      eyeLheightOffset -= lroundf((eyeLheightDefault - closedHeight) * shut);
+      eyeRheightOffset -= lroundf((eyeRheightDefault - closedHeight) * shut);
+      dozeDroopOffset = lroundf(dozeDroop * (shut > 0 ? shut : 0));
+    }
+  }
+
+  // Wink - for winkDuration one eye is shut (closed by anim_wink), the other
+  // one squints, and both hop up and down once; then the eye opens again
+  winkHopOffset = 0;
+  if(winking){
+    const unsigned long elapsed = millis() - winkAnimationTimer;
+    if(elapsed >= (unsigned long)winkDuration){
+      open(winkLeft, !winkLeft);
+      winking = 0;
+    } else {
+      if(winkLeft){
+        eyeRheightOffset -= winkSquint;
+      } else {
+        eyeLheightOffset -= winkSquint;
+      }
+      winkHopOffset = lroundf(winkHop * sinf(PI * float(elapsed) / winkDuration));
+    }
+  }
+
+  // Left eye height. The target is never below closedHeight: a negative
+  // offset (e.g. dozing) together with a blink would otherwise give a negative
+  // height, which is drawn inside out.
+  int eyeLheightTarget = eyeLheightNext + eyeLheightOffset;
+  if(eyeLheightTarget < closedHeight){eyeLheightTarget = closedHeight;}
+  eyeLheightCurrent = (eyeLheightCurrent + eyeLheightTarget)/2;
   eyeLy+= ((eyeLheightDefault-eyeLheightCurrent)/2); // vertical centering of eye when closing
   eyeLy-= eyeLheightOffset/2;
   // Right eye height
-  eyeRheightCurrent = (eyeRheightCurrent + eyeRheightNext + eyeRheightOffset)/2;
+  int eyeRheightTarget = eyeRheightNext + eyeRheightOffset;
+  if(eyeRheightTarget < closedHeight){eyeRheightTarget = closedHeight;}
+  eyeRheightCurrent = (eyeRheightCurrent + eyeRheightTarget)/2;
   eyeRy+= (eyeRheightDefault-eyeRheightCurrent)/2; // vertical centering of eye when closing
   eyeRy-= eyeRheightOffset/2;
 
 
-  // Open eyes again after closing them
+  // Open eyes again after closing them: once they are as closed as they get
+  // (a positive offset, e.g. curious, keeps them a bit taller)
 	if(eyeL_open){
-  	if(eyeLheightCurrent <= closedHeight + eyeLheightOffset){eyeLheightNext = eyeLheightDefault;} 
+  	if(eyeLheightCurrent <= closedHeight + (eyeLheightOffset > 0 ? eyeLheightOffset : 0)){eyeLheightNext = eyeLheightDefault;}
   }
   if(eyeR_open){
-  	if(eyeRheightCurrent <= closedHeight + eyeRheightOffset){eyeRheightNext = eyeRheightDefault;} 
+  	if(eyeRheightCurrent <= closedHeight + (eyeRheightOffset > 0 ? eyeRheightOffset : 0)){eyeRheightNext = eyeRheightDefault;}
   }
 
   // Left eye width
@@ -689,7 +807,7 @@ void drawEyes(){
 
   //// APPLYING MACRO ANIMATIONS ////
 
-	if(autoblinker){
+	if(autoblinker && !doze){ // no blinks while fighting against sleep
 		if(millis() >= blinktimer){
 		blink();
 		blinktimer = millis()+(blinkInterval*1000)+random(blinkIntervalVariation*1000); // calculate next time for blinking; random to the millisecond, so blinking and idle moves stay independent
@@ -776,8 +894,8 @@ void drawEyes(){
     breathingOffset = 0;
   }
   breathingTimer = millis();
-  // Breathing and the startled jump (upwards) move the eyes only while drawing
-  drawOffsetY = breathingOffset - startledJumpOffset;
+  // Breathing, the startled jump and the wink hop (upwards) and the doze droop (downwards) move the eyes only while drawing
+  drawOffsetY = breathingOffset - startledJumpOffset - winkHopOffset + dozeDroopOffset;
   eyeLy += drawOffsetY;
   eyeRy += drawOffsetY;
 

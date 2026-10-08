@@ -47,6 +47,8 @@ anim_confused	KEYWORD2
 anim_laugh	KEYWORD2
 anim_startled	KEYWORD2
 anim_flutter	KEYWORD2
+anim_doze	KEYWORD2
+anim_wink	KEYWORD2
 drawEyes	KEYWORD2
 
 #######################################

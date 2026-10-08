@@ -66,6 +66,8 @@ Draws three lashes at the upper outer corner of each eye, e.g. for female eyes. 
 - **anim_laugh()** _laughing -> eyes shaking up and down_
 - **anim_startled()** _startled -> eyes jumping up, opening wide and shivering for a moment, e.g. after a loud noise_
 - **anim_flutter()** _(byte amplitude) fluttering -> the eyelids twitch for a moment, e.g. closed eyes while snoring; amplitude: how much taller the eyes get with each twitch, in pixels_
+- **anim_doze()** _dozing off, fighting against sleep -> the eyelids sink, jerk back open twice, fall shut, then the eyes pop open a bit wider; the eyes droop down with the lids; no blinks meanwhile_
+- **anim_wink()** _(bool left) perky wink -> one eye (left = true: the left one) shuts for a moment, the other one squints, both hop up a little_
 - **blink()** _close and open both eyes_
 - **blink(0,1)** _close and open right eye_
 
