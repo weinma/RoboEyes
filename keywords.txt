@@ -35,6 +35,7 @@ setHFlicker	KEYWORD2
 setVFlicker	KEYWORD2
 setBreathing	KEYWORD2
 setEyelashes	KEYWORD2
+setClosedHeight	KEYWORD2
 setSweat	KEYWORD2
 getScreenConstraint_X	KEYWORD2
 getScreenConstraint_Y	KEYWORD2
@@ -43,6 +44,8 @@ open	KEYWORD2
 blink	KEYWORD2
 anim_confused	KEYWORD2
 anim_laugh	KEYWORD2
+anim_startled	KEYWORD2
+anim_flutter	KEYWORD2
 drawEyes	KEYWORD2
 
 #######################################

@@ -172,6 +172,10 @@ int breathingOffset = 0; // vertical offset for the current frame, only while dr
 bool eyelashes = 0;
 byte eyelashLength = 12; // in pixels
 
+// Closed eyes: how thick the line of a closed eye is, in pixels (also the
+// moment of a blink)
+byte closedHeight = 1;
+
 // Animation - auto blinking
 bool autoblinker = 0; // activate auto blink animation
 int blinkInterval = 1; // basic interval between each blink in full seconds
@@ -195,6 +199,24 @@ bool laugh = 0;
 unsigned long laughAnimationTimer = 0;
 int laughAnimationDuration = 500;
 bool laughToggle = 1;
+
+// Animation - eyes startled: eyes jump up, open wide and shiver up and down
+bool startled = 0;
+unsigned long startledAnimationTimer = 0;
+int startledAnimationDuration = 1000;
+byte startledHeightOffset = 15; // how much taller the eyes get, in pixels
+byte startledJump = 8; // how far the eyes jump up at the start, in pixels; they sink back during the animation
+byte startledShiverAmplitude = 4; // up and down, in pixels
+int startledJumpOffset = 0; // the jump in the current frame, only while drawing
+
+// Animation - eyes fluttering: the eyelids twitch, e.g. closed eyes while
+// dreaming or snoring
+bool flutter = 0;
+unsigned long flutterAnimationTimer = 0;
+int flutterAnimationDuration = 900;
+int flutterInterval = 80; // milliseconds between the twitches
+byte flutterAmplitude = 0; // how much taller the eyes get with each twitch, in pixels (set by anim_flutter)
+int drawOffsetY = 0; // breathing and jump in the current frame, only while drawing
 
 // Animation - sweat on the forehead
 bool sweat = 0;
@@ -330,17 +352,17 @@ void setPosition(unsigned char position)
     case N:
       // North, top center
       eyeLxNext = getScreenConstraint_X()/2;
-      eyeLyNext = 0;
+      eyeLyNext = getScreenTop_Y();
       break;
     case NE:
       // North-east, top right
       eyeLxNext = getScreenConstraint_X();
-      eyeLyNext = 0;
+      eyeLyNext = getScreenTop_Y();
       break;
     case E:
       // East, middle right
       eyeLxNext = getScreenConstraint_X();
-      eyeLyNext = getScreenConstraint_Y()/2;
+      eyeLyNext = (getScreenTop_Y()+getScreenConstraint_Y())/2;
       break;
     case SE:
       // South-east, bottom right
@@ -360,17 +382,17 @@ void setPosition(unsigned char position)
     case W:
       // West, middle left
       eyeLxNext = 0;
-      eyeLyNext = getScreenConstraint_Y()/2;
+      eyeLyNext = (getScreenTop_Y()+getScreenConstraint_Y())/2;
       break;
     case NW:
       // North-west, top left
       eyeLxNext = 0;
-      eyeLyNext = 0;
+      eyeLyNext = getScreenTop_Y();
       break;
     default:
       // Middle center
       eyeLxNext = getScreenConstraint_X()/2;
-      eyeLyNext = getScreenConstraint_Y()/2;
+      eyeLyNext = (getScreenTop_Y()+getScreenConstraint_Y())/2;
       break;
     }
   }
@@ -444,6 +466,12 @@ void setEyelashes (bool eyelashesBit) {
   eyelashes = eyelashesBit; // turn eyelashes on or off
 }
 
+// Set how thick closed eyes are, in pixels (default 1: a thin line); blinks
+// close to this height too
+void setClosedHeight (byte height) {
+  closedHeight = height > 0 ? height : 1;
+}
+
 void setSweat (bool sweatBit) {
   sweat = sweatBit; // turn sweat on or off
 }
@@ -458,9 +486,20 @@ int getScreenConstraint_X(){
   return screenWidth-eyeLwidthCurrent-spaceBetweenCurrent-eyeRwidthCurrent;
 } 
 
+// Distance the eyes keep to the top and bottom edge: breathing moves them up
+// and down by its amplitude, so they don't leave the screen
+int getScreenMargin_Y(){
+ return breathing ? breathingAmplitude : 0;
+}
+
+// Returns the min y position for left eye
+int getScreenTop_Y(){
+ return getScreenMargin_Y();
+}
+
 // Returns the max y position for left eye
 int getScreenConstraint_Y(){
- return screenHeight-eyeLheightDefault; // using default height here, because height will vary when blinking and in curious mode
+ return screenHeight-eyeLheightDefault-getScreenMargin_Y(); // using default height here, because height will vary when blinking and in curious mode
 }
 
 
@@ -471,8 +510,8 @@ int getScreenConstraint_Y(){
 // BLINKING FOR BOTH EYES AT ONCE
 // Close both eyes
 void close() {
-	eyeLheightNext = 1; // closing left eye
-  eyeRheightNext = 1; // closing right eye
+	eyeLheightNext = closedHeight; // closing left eye
+  eyeRheightNext = closedHeight; // closing right eye
   eyeL_open = 0; // left eye not opened (=closed)
 	eyeR_open = 0; // right eye not opened (=closed)
 }
@@ -493,11 +532,11 @@ void blink() {
 // Close eye(s)
 void close(bool left, bool right) {
   if(left){
-    eyeLheightNext = 1; // blinking left eye
+    eyeLheightNext = closedHeight; // blinking left eye
     eyeL_open = 0; // left eye not opened (=closed)
   }
   if(right){
-      eyeRheightNext = 1; // blinking right eye
+      eyeRheightNext = closedHeight; // blinking right eye
       eyeR_open = 0; // right eye not opened (=closed)
   }
 }
@@ -533,6 +572,23 @@ void anim_laugh() {
   laugh = 1;
 }
 
+// Play startled animation - one shot animation of eyes jumping up, opening wide and
+// shivering up and down, e.g. after a loud noise
+void anim_startled() {
+  startled = 1;
+  startledAnimationTimer = millis();
+  setVFlicker(1, startledShiverAmplitude);
+}
+
+// Play flutter animation - one shot animation of the eyelids twitching, e.g.
+// closed eyes while snoring; amplitude: how much taller the eyes get with each
+// twitch, in pixels
+void anim_flutter(byte amplitude) {
+  flutterAmplitude = amplitude;
+  flutter = 1;
+  flutterAnimationTimer = millis();
+}
+
 //*********************************************************************************************
 //  PRE-CALCULATIONS AND ACTUAL DRAWINGS
 //*********************************************************************************************
@@ -553,6 +609,35 @@ void drawEyes(){
     eyeRheightOffset=0; // reset height offset for right eye
   }
 
+  // Startled - for the duration defined by startledAnimationDuration (default =
+  // 1000ms) the eyes are taller, growing and shrinking smoothly through the
+  // height offset, and they jump up at the start and sink back
+  startledJumpOffset = 0;
+  if(startled){
+    const unsigned long elapsed = millis() - startledAnimationTimer;
+    if(elapsed >= (unsigned long)startledAnimationDuration){
+      setVFlicker(0, 0);
+      startled = 0;
+    } else {
+      eyeLheightOffset += startledHeightOffset;
+      eyeRheightOffset += startledHeightOffset;
+      startledJumpOffset = lroundf(startledJump * (1 - float(elapsed) / startledAnimationDuration));
+    }
+  }
+
+  // Flutter - for the duration defined by flutterAnimationDuration (default =
+  // 900ms) the eyes get taller by flutterAmplitude every other flutterInterval,
+  // so the eyelids twitch
+  if(flutter){
+    const unsigned long elapsed = millis() - flutterAnimationTimer;
+    if(elapsed >= (unsigned long)flutterAnimationDuration){
+      flutter = 0;
+    } else if((elapsed / flutterInterval) % 2 == 0){
+      eyeLheightOffset += flutterAmplitude;
+      eyeRheightOffset += flutterAmplitude;
+    }
+  }
+
   // Left eye height
   eyeLheightCurrent = (eyeLheightCurrent + eyeLheightNext + eyeLheightOffset)/2;
   eyeLy+= ((eyeLheightDefault-eyeLheightCurrent)/2); // vertical centering of eye when closing
@@ -565,10 +650,10 @@ void drawEyes(){
 
   // Open eyes again after closing them
 	if(eyeL_open){
-  	if(eyeLheightCurrent <= 1 + eyeLheightOffset){eyeLheightNext = eyeLheightDefault;} 
+  	if(eyeLheightCurrent <= closedHeight + eyeLheightOffset){eyeLheightNext = eyeLheightDefault;} 
   }
   if(eyeR_open){
-  	if(eyeRheightCurrent <= 1 + eyeRheightOffset){eyeRheightNext = eyeRheightDefault;} 
+  	if(eyeRheightCurrent <= closedHeight + eyeRheightOffset){eyeRheightNext = eyeRheightDefault;} 
   }
 
   // Left eye width
@@ -600,7 +685,7 @@ void drawEyes(){
 	if(autoblinker){
 		if(millis() >= blinktimer){
 		blink();
-		blinktimer = millis()+(blinkInterval*1000)+(random(blinkIntervalVariation)*1000); // calculate next time for blinking
+		blinktimer = millis()+(blinkInterval*1000)+random(blinkIntervalVariation*1000); // calculate next time for blinking; random to the millisecond, so blinking and idle moves stay independent
 		}
 	}
 
@@ -634,8 +719,8 @@ void drawEyes(){
   if(idle){
     if(millis() >= idleAnimationTimer){
       eyeLxNext = random(getScreenConstraint_X());
-      eyeLyNext = random(getScreenConstraint_Y());
-      idleAnimationTimer = millis()+(idleInterval*1000)+(random(idleIntervalVariation)*1000); // calculate next time for eyes repositioning
+      eyeLyNext = getScreenTop_Y()+random(getScreenConstraint_Y()-getScreenTop_Y()+1);
+      idleAnimationTimer = millis()+(idleInterval*1000)+random(idleIntervalVariation*1000); // calculate next time for eyes repositioning; random to the millisecond
     }
   }
 
@@ -682,8 +767,10 @@ void drawEyes(){
     breathingOffset = 0;
   }
   breathingTimer = millis();
-  eyeLy += breathingOffset;
-  eyeRy += breathingOffset;
+  // Breathing and the startled jump (upwards) move the eyes only while drawing
+  drawOffsetY = breathingOffset - startledJumpOffset;
+  eyeLy += drawOffsetY;
+  eyeRy += drawOffsetY;
 
   //// ACTUAL DRAWINGS ////
 
@@ -768,9 +855,9 @@ void drawEyes(){
 
   display->display(); // show drawings on display
 
-  // Remove the breathing offset again, see above
-  eyeLy -= breathingOffset;
-  eyeRy -= breathingOffset;
+  // Remove the breathing and jump offset again, see above
+  eyeLy -= drawOffsetY;
+  eyeRy -= drawOffsetY;
 
 } // end of drawEyes method
 

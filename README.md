@@ -46,6 +46,7 @@ After installation, the example sketches can be found under
 - **setSweat()** _(bool ON/OFF) -> when turned on, animated sweat drops appear in the upper screen area_
 - **open()** _open both eyes -> open(1,0) opens left eye only_
 - **close()** _close both eyes -> close(1,0) closes left eye only_
+- **setClosedHeight()** _(byte height) -> how thick closed eyes are in pixels, also at the moment of a blink (default: 1 pixel)_
 
 ### Set Horizontal and/or Vertical Flicker
 Alternately displaces the eyes in the defined amplitude in pixels:
@@ -63,15 +64,17 @@ Draws three lashes at the upper outer corner of each eye, e.g. for female eyes. 
 ### Play Prebuilt Oneshot Animations
 - **anim_confused()** _confused -> eyes shaking left and right_
 - **anim_laugh()** _laughing -> eyes shaking up and down_
+- **anim_startled()** _startled -> eyes jumping up, opening wide and shivering for a moment, e.g. after a loud noise_
+- **anim_flutter()** _(byte amplitude) fluttering -> the eyelids twitch for a moment, e.g. closed eyes while snoring; amplitude: how much taller the eyes get with each twitch, in pixels_
 - **blink()** _close and open both eyes_
 - **blink(0,1)** _close and open right eye_
 
 ### Macro Animators
 Blinks both eyes randomly:
-- **setAutoblinker()** _(bool ON/OFF, int interval, int variation) -> turn on/off, set interval between each blink in full seconds, set range for additional random interval variation in full seconds_
+- **setAutoblinker()** _(bool ON/OFF, int interval, int variation) -> turn on/off, set interval between each blink in full seconds, plus a random extra time of up to variation seconds (random to the millisecond)_
 
 Repositions both eyes randomly:
-- **setIdleMode()** _(bool ON/OFF, int interval, int variation) -> turn on/off, set interval between each eye repositioning in full seconds, set range for additional random interval variation in full seconds_
+- **setIdleMode()** _(bool ON/OFF, int interval, int variation) -> turn on/off, set interval between each eye repositioning in full seconds, plus a random extra time of up to variation seconds (random to the millisecond)_
 
 ### Further (Inofficial) Resources by Other Users
 - micropython-roboeyes by mchobby: https://github.com/mchobby/micropython-roboeyes
