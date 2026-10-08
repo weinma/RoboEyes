@@ -56,6 +56,10 @@ Alternately displaces the eyes in the defined amplitude in pixels:
 Moves the eyes slowly and smoothly up and down, like breathing. The period can be changed at any time (e.g. faster when excited) without the eyes jumping:
 - **setBreathing()** _(bool ON/OFF, byte amplitude, unsigned int period) -> turn on/off, set how far up and down in pixels, set the duration of one breath in milliseconds (default: 2 pixels, 4000 ms)_
 
+### Set Eyelashes
+Draws three lashes at the upper outer corner of each eye, e.g. for female eyes. They follow the eyes when blinking and moving, and stay on the visible edge with tired or angry eyelids:
+- **setEyelashes()** _(bool ON/OFF, byte length) -> turn on/off, set the length of the lashes in pixels (default: 12 pixels)_
+
 ### Play Prebuilt Oneshot Animations
 - **anim_confused()** _confused -> eyes shaking left and right_
 - **anim_laugh()** _laughing -> eyes shaking up and down_

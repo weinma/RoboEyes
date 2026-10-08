@@ -168,6 +168,10 @@ float breathingPhase = 0; // 0 ... 1 within the current breath
 unsigned long breathingTimer = 0; // when the phase was last advanced
 int breathingOffset = 0; // vertical offset for the current frame, only while drawing
 
+// Eyelashes: three lashes at the upper outer corner of each eye
+bool eyelashes = 0;
+byte eyelashLength = 12; // in pixels
+
 // Animation - auto blinking
 bool autoblinker = 0; // activate auto blink animation
 int blinkInterval = 1; // basic interval between each blink in full seconds
@@ -428,6 +432,16 @@ void setBreathing (bool breathingBit, byte amplitude, unsigned int period) {
 }
 void setBreathing (bool breathingBit) {
   breathing = breathingBit; // turn breathing on or off
+}
+
+// Set eyelashes: three lashes at the upper outer corner of each eye, length
+// in pixels; they follow the eyes when blinking, moving and with the eyelids
+void setEyelashes (bool eyelashesBit, byte length) {
+  eyelashes = eyelashesBit; // turn eyelashes on or off
+  eyelashLength = length; // length of the lashes in pixels
+}
+void setEyelashes (bool eyelashesBit) {
+  eyelashes = eyelashesBit; // turn eyelashes on or off
 }
 
 void setSweat (bool sweatBit) {
@@ -715,6 +729,14 @@ void drawEyes(){
       display->fillRoundRect(eyeRx-1, (eyeRy+eyeRheightCurrent)-eyelidsHappyBottomOffset+1, eyeRwidthCurrent+2, eyeRheightDefault, eyeRborderRadiusCurrent, BGCOLOR); // right eye
     }
 
+  // Draw eyelashes at the outer corners
+    if (eyelashes){
+      drawEyelashes(eyeLx, eyeLy, eyeLwidthCurrent, eyeLheightCurrent, eyeLborderRadiusCurrent, true); // left eye
+      if (!cyclops){
+        drawEyelashes(eyeRx, eyeRy, eyeRwidthCurrent, eyeRheightCurrent, eyeRborderRadiusCurrent, false); // right eye
+      }
+    }
+
   // Add sweat drops
     if (sweat){
       // Sweat drop 1 -> left corner
@@ -751,6 +773,35 @@ void drawEyes(){
   eyeRy -= breathingOffset;
 
 } // end of drawEyes method
+
+// Draws three eyelashes at the upper outer corner of one eye, pointing outwards
+// from its rounded corner; outerLeft: the outer corner is on the left (left eye).
+// Where the tired or angry eyelids cut the top of the eye, the lashes start on
+// the eyelid's edge, so they stay attached to the visible eye.
+void drawEyelashes(int x, int y, int width, int height, int radius, bool outerLeft){
+  const int r = constrain(radius, 0, height/2); // a closing eye gets flatter corners
+  const int side = outerLeft ? -1 : 1; // outwards
+  const int cornerX = outerLeft ? x + r : x + width - r; // center of the rounded corner
+  const int cornerY = y + r;
+  static const float ANGLES[] = {0.3, 0.8, 1.3}; // from sideways (0) to upwards (PI/2)
+  for (float angle : ANGLES){
+    const float dx = cosf(angle);
+    const float dy = sinf(angle);
+    const int baseX = cornerX + side * lroundf(r * dx);
+    int baseY = cornerY - lroundf(r * dy);
+    // The eyelids are triangles over the top of the eye: tired ones cut the
+    // outer corner, angry ones the inner corner (0 = outer side ... 1 = inner side)
+    const float fromOuter = outerLeft ? float(baseX - x) / width : float(x + width - baseX) / width;
+    const int lid = max(lroundf(eyelidsTiredHeight * (1 - fromOuter)), lroundf(eyelidsAngryHeight * fromOuter));
+    baseY = max(baseY, y + lid);
+    const int endX = baseX + side * lroundf(eyelashLength * dx);
+    const int endY = baseY - lroundf(eyelashLength * dy);
+    // 3 pixels thick: the line, plus one pixel up and one outwards
+    display->drawLine(baseX, baseY, endX, endY, MAINCOLOR);
+    display->drawLine(baseX, baseY - 1, endX, endY - 1, MAINCOLOR);
+    display->drawLine(baseX + side, baseY, endX + side, endY, MAINCOLOR);
+  }
+}
 
 
 }; // end of class roboEyes
