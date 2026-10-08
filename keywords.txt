@@ -29,6 +29,7 @@ setMood	KEYWORD2
 setPosition	KEYWORD2
 setAutoblinker	KEYWORD2
 setIdleMode	KEYWORD2
+setIdleHorizontalOnly	KEYWORD2
 setCuriosity	KEYWORD2
 setCyclops	KEYWORD2
 setHFlicker	KEYWORD2

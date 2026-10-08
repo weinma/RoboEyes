@@ -184,6 +184,7 @@ unsigned long blinktimer = 0; // for organising eyeblink timing
 
 // Animation - idle mode: eyes looking in random directions
 bool idle = 0;
+bool idleHorizontalOnly = 0; // only move left and right, keep the height (e.g. looking down while moving)
 int idleInterval = 1; // basic interval between each eye repositioning in full seconds
 int idleIntervalVariation = 3; // interval variaton range in full seconds, random number inside of given range will be add to the basic idleInterval, set to 0 for no variation
 unsigned long idleAnimationTimer = 0; // for organising eyeblink timing
@@ -415,6 +416,12 @@ void setIdleMode(bool active, int interval, int variation){
 }
 void setIdleMode(bool active) {
   idle = active;
+}
+
+// Set idle mode to move the eyes only left and right, keeping their height
+// (e.g. set by setPosition(S) to look down while looking around)
+void setIdleHorizontalOnly(bool horizontalOnly) {
+  idleHorizontalOnly = horizontalOnly;
 }
 
 // Set curious mode - the respectively outer eye gets larger when looking left or right
@@ -719,7 +726,9 @@ void drawEyes(){
   if(idle){
     if(millis() >= idleAnimationTimer){
       eyeLxNext = random(getScreenConstraint_X());
-      eyeLyNext = getScreenTop_Y()+random(getScreenConstraint_Y()-getScreenTop_Y()+1);
+      if(!idleHorizontalOnly){
+        eyeLyNext = getScreenTop_Y()+random(getScreenConstraint_Y()-getScreenTop_Y()+1);
+      }
       idleAnimationTimer = millis()+(idleInterval*1000)+random(idleIntervalVariation*1000); // calculate next time for eyes repositioning; random to the millisecond
     }
   }

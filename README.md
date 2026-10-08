@@ -75,6 +75,7 @@ Blinks both eyes randomly:
 
 Repositions both eyes randomly:
 - **setIdleMode()** _(bool ON/OFF, int interval, int variation) -> turn on/off, set interval between each eye repositioning in full seconds, plus a random extra time of up to variation seconds (random to the millisecond)_
+- **setIdleHorizontalOnly()** _(bool ON/OFF) -> idle mode moves the eyes only left and right and keeps their height, e.g. looking down (setPosition(S)) while looking around_
 
 ### Further (Inofficial) Resources by Other Users
 - micropython-roboeyes by mchobby: https://github.com/mchobby/micropython-roboeyes
