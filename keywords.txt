@@ -33,6 +33,7 @@ setCuriosity	KEYWORD2
 setCyclops	KEYWORD2
 setHFlicker	KEYWORD2
 setVFlicker	KEYWORD2
+setBreathing	KEYWORD2
 setSweat	KEYWORD2
 getScreenConstraint_X	KEYWORD2
 getScreenConstraint_Y	KEYWORD2

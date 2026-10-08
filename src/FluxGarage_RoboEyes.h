@@ -160,6 +160,14 @@ bool vFlicker = 0;
 bool vFlickerAlternate = 0;
 byte vFlickerAmplitude = 10;
 
+// Animation - breathing: eyes slowly moving up and down
+bool breathing = 0;
+byte breathingAmplitude = 2; // in pixels, up and down from the eyes' position
+unsigned int breathingPeriod = 4000; // one breath (up and down) in milliseconds
+float breathingPhase = 0; // 0 ... 1 within the current breath
+unsigned long breathingTimer = 0; // when the phase was last advanced
+int breathingOffset = 0; // vertical offset for the current frame, only while drawing
+
 // Animation - auto blinking
 bool autoblinker = 0; // activate auto blink animation
 int blinkInterval = 1; // basic interval between each blink in full seconds
@@ -411,6 +419,17 @@ void setVFlicker (bool flickerBit) {
   vFlicker = flickerBit; // turn flicker on or off
 }
 
+// Set breathing (eyes slowly moving up and down, like breathing): amplitude
+// in pixels, one breath in milliseconds
+void setBreathing (bool breathingBit, byte amplitude, unsigned int period) {
+  breathing = breathingBit; // turn breathing on or off
+  breathingAmplitude = amplitude; // how far up and down in pixels
+  breathingPeriod = period > 0 ? period : 1; // duration of one breath in milliseconds
+}
+void setBreathing (bool breathingBit) {
+  breathing = breathingBit; // turn breathing on or off
+}
+
 void setSweat (bool sweatBit) {
   sweat = sweatBit; // turn sweat on or off
 }
@@ -637,6 +656,21 @@ void drawEyes(){
     spaceBetweenCurrent = 0;
   }
 
+  // Breathing: a smooth up and down offset, applied only while drawing, so
+  // it doesn't add up in the eyes' position from frame to frame. The phase
+  // advances with the time since the last frame, so changing the period
+  // changes the speed without a jump.
+  if(breathing){
+    breathingPhase += float(millis() - breathingTimer) / breathingPeriod;
+    breathingPhase -= floorf(breathingPhase); // keep it within 0 ... 1
+    breathingOffset = lroundf(breathingAmplitude * sinf(2 * PI * breathingPhase));
+  } else {
+    breathingOffset = 0;
+  }
+  breathingTimer = millis();
+  eyeLy += breathingOffset;
+  eyeRy += breathingOffset;
+
   //// ACTUAL DRAWINGS ////
 
   display->clearDisplay(); // start with a blank screen
@@ -711,6 +745,10 @@ void drawEyes(){
     }
 
   display->display(); // show drawings on display
+
+  // Remove the breathing offset again, see above
+  eyeLy -= breathingOffset;
+  eyeRy -= breathingOffset;
 
 } // end of drawEyes method
 

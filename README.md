@@ -52,6 +52,10 @@ Alternately displaces the eyes in the defined amplitude in pixels:
 - **setHFlicker()** _(bool ON/OFF, byte amplitude)_
 - **setVFlicker()** _(bool ON/OFF, byte amplitude)_
 
+### Set Breathing
+Moves the eyes slowly and smoothly up and down, like breathing. The period can be changed at any time (e.g. faster when excited) without the eyes jumping:
+- **setBreathing()** _(bool ON/OFF, byte amplitude, unsigned int period) -> turn on/off, set how far up and down in pixels, set the duration of one breath in milliseconds (default: 2 pixels, 4000 ms)_
+
 ### Play Prebuilt Oneshot Animations
 - **anim_confused()** _confused -> eyes shaking left and right_
 - **anim_laugh()** _laughing -> eyes shaking up and down_
