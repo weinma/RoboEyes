@@ -189,6 +189,12 @@ int idleInterval = 1; // basic interval between each eye repositioning in full s
 int idleIntervalVariation = 3; // interval variaton range in full seconds, random number inside of given range will be add to the basic idleInterval, set to 0 for no variation
 unsigned long idleAnimationTimer = 0; // for organising eyeblink timing
 
+// Lean: pins the eyes to an edge, e.g. when the device is tilted; -1 = left
+// (top), +1 = right (bottom), 0 = free. Overrides positions and idle moves on
+// that axis; animations play on top.
+int8_t leanX = 0;
+int8_t leanY = 0;
+
 // Animation - eyes confused: eyes shaking left and right
 bool confused = 0;
 unsigned long confusedAnimationTimer = 0;
@@ -441,6 +447,13 @@ void setIdleMode(bool active) {
 // (e.g. set by setPosition(S) to look down while looking around)
 void setIdleHorizontalOnly(bool horizontalOnly) {
   idleHorizontalOnly = horizontalOnly;
+}
+
+// Set lean - pins the eyes to an edge: sideways -1 = left, +1 = right;
+// forward -1 = top, +1 = bottom; 0 = free on that axis
+void setLean(int8_t sideways, int8_t forward) {
+  leanX = sideways;
+  leanY = forward;
 }
 
 // Set curious mode - the respectively outer eye gets larger when looking left or right
@@ -789,6 +802,13 @@ void drawEyes(){
 
   // Space between eyes
   spaceBetweenCurrent = (spaceBetweenCurrent + spaceBetweenNext)/2;
+
+  // Lean: overrides the target every frame, so positions and idle moves can't
+  // leave the pinned edge
+  if(leanX < 0){eyeLxNext = 0;}
+  else if(leanX > 0){eyeLxNext = getScreenConstraint_X();}
+  if(leanY < 0){eyeLyNext = getScreenTop_Y();}
+  else if(leanY > 0){eyeLyNext = getScreenConstraint_Y();}
 
   // Left eye coordinates
   eyeLx = (eyeLx + eyeLxNext)/2;
