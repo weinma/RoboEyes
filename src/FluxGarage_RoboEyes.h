@@ -233,11 +233,12 @@ byte dozeDroop = 6; // how far the eyes droop down when shut, in pixels
 int dozeDroopOffset = 0; // the droop in the current frame, only while drawing
 
 // Animation - perky wink: one eye shuts for a moment, the other one squints,
-// and both hop up a little
-bool winking = 0;
+// and both hop up a little; then a short stare
+bool winking = 0; // also during the stare
 bool winkLeft = 0; // which eye winks
 unsigned long winkAnimationTimer = 0;
 int winkDuration = 400; // how long the winking eye stays shut, in milliseconds
+int winkStare = 1500; // after the wink the eyes hold still this long (no blinks, no glances), in milliseconds
 byte winkSquint = 8; // how much shorter the other eye gets, in pixels
 byte winkHop = 4; // how far both eyes hop up, in pixels
 int winkHopOffset = 0; // the hop in the current frame, only while drawing
@@ -677,7 +678,8 @@ float dozeShutAt(unsigned long elapsed) const {
 }
 
 // Play wink animation - one shot animation of a perky wink: one eye (left =
-// true: the left one) shuts for a moment, the other one squints, both hop up
+// true: the left one) shuts for a moment, the other one squints, both hop up;
+// then the eyes stare for a moment
 void anim_wink(bool left) {
   winking = 1;
   winkLeft = left;
@@ -752,13 +754,15 @@ void drawEyes(){
   }
 
   // Wink - for winkDuration one eye is shut (closed by anim_wink), the other
-  // one squints, and both hop up and down once; then the eye opens again
+  // one squints, and both hop up and down once; then the eye opens again and
+  // the eyes stare for winkStare (no blinks, no glances: see below)
   winkHopOffset = 0;
   if(winking){
     const unsigned long elapsed = millis() - winkAnimationTimer;
-    if(elapsed >= (unsigned long)winkDuration){
-      open(winkLeft, !winkLeft);
+    if(elapsed >= (unsigned long)(winkDuration + winkStare)){
       winking = 0;
+    } else if(elapsed >= (unsigned long)winkDuration){
+      open(winkLeft, !winkLeft);
     } else {
       if(winkLeft){
         eyeRheightOffset -= winkSquint;
@@ -827,7 +831,7 @@ void drawEyes(){
 
   //// APPLYING MACRO ANIMATIONS ////
 
-	if(autoblinker && !doze){ // no blinks while fighting against sleep
+	if(autoblinker && !doze && !winking){ // no blinks while fighting against sleep, winking (a blink would open the winking eye) or staring after it
 		if(millis() >= blinktimer){
 		blink();
 		blinktimer = millis()+(blinkInterval*1000)+random(blinkIntervalVariation*1000); // calculate next time for blinking; random to the millisecond, so blinking and idle moves stay independent
@@ -861,7 +865,7 @@ void drawEyes(){
   }
 
   // Idle - eyes moving to random positions on screen
-  if(idle){
+  if(idle && !winking){ // no glances while winking and staring after it
     if(millis() >= idleAnimationTimer){
       eyeLxNext = random(getScreenConstraint_X());
       if(!idleHorizontalOnly){
